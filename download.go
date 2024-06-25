@@ -8,7 +8,7 @@ import (
 	"log"
 )
 
-func download(url string) {
+func download(url string, done chan<- bool) {
 	fmt.Println("---> Downloading")
 	ytdlp.MustInstall(context.TODO(), nil)
 
@@ -24,8 +24,11 @@ func download(url string) {
 	if err != nil {
 
 		log.Println("Error donwloading:", err)
+		done <- false
 		// panic(err)
 	} else {
 		log.Println("---> Downloading DONE!", download_res)
+		done <- true
+		close(done)
 	}
 }
