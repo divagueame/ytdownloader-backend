@@ -6,6 +6,8 @@ import (
 	"github.com/lrstanley/go-ytdlp"
 	"log"
 	"sync"
+	"github.com/google/uuid"
+	"github.com/lrstanley/go-ytdlp"
 )
 
 type Download struct {
@@ -54,6 +56,10 @@ func (dm *DownloadManager) downloadFile(id string) {
 	dl := ytdlp.New().
 		ExtractAudio().
 		AudioFormat("mp3").
+		PrintJSON().
+		NoPlaylist().
+		Progress().
+		Paths(fmt.Sprintf("downloads/%s", id)).
 		// FormatSort("res,ext:mp4:m4a").
 		// RecodeVideo("mp4").
 		Output("%(extractor)s - %(title)s.%(ext)s")
