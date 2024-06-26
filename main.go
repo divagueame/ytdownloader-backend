@@ -54,4 +54,20 @@ func main() {
 	// http.HandleFunc("/", serveHome)
 }
 
+func serveFile(w http.ResponseWriter, r *http.Request) {
+
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 3 || parts[2] == "" {
+		http.Error(w, "Not found", http.StatusNotFound)
+	}
+	id := parts[2]
+	log.Print("--> Serving file!", id)
+
+	w.Header().Set("Content-Type", "audio/mpeg")
+	// w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+
+	http.ServeFile(w, r, "song.mp3")
+
 }
+
