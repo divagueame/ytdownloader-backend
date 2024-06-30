@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"github.com/lrstanley/go-ytdlp"
 	"log"
 	"sync"
 	"github.com/google/uuid"
