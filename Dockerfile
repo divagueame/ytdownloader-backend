@@ -1,5 +1,5 @@
 FROM golang:bullseye
-
+RUN apt-get update && apt-get install -y ffmpeg
 WORKDIR /app
 
 COPY go.mod go.sum ./
@@ -10,6 +10,6 @@ COPY *.go ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /docker-yt
 
-EXPOSE 3000
+EXPOSE 5000
 
 CMD ["/docker-yt"]
