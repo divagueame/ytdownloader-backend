@@ -9,22 +9,25 @@ import (
 )
 
 type Download struct {
-	Id       string
-	State    State
+	Id       string     `json:"id"`
+	State    State      `json:"state"`
 	Channel  chan State `json:"-"`
-	Owner    string
-	FilePath string
-	Url      string `json:"url"`
+	Owner    string     `json:"-"`
+	FilePath string     `json:"-"`
+	Title    string     `json:"title"`
+	Url      string     `json:"url"`
 }
 
 type DownloadManager struct {
 	downloads map[string]*Download
+	completed map[string]chan string
 	mu        sync.Mutex
 }
 
 func NewDownloadManager() *DownloadManager {
 	return &DownloadManager{
 		downloads: make(map[string]*Download),
+		completed: make(map[string]chan string),
 	}
 }
 
@@ -32,7 +35,7 @@ func (dm *DownloadManager) createDownload(url string, session_id string) *Downlo
 
 	download := &Download{
 		Id:      uuid.New().String(),
-		State:   Idle,
+		State:   Processing,
 		Channel: make(chan State),
 		Owner:   session_id,
 		Url:     url,
@@ -43,10 +46,33 @@ func (dm *DownloadManager) createDownload(url string, session_id string) *Downlo
 	dm.mu.Unlock()
 	return download
 }
-func (dm *DownloadManager) downloadFile(id string) {
 
-	// dm.mu.Lock()
-	//  defer dm.mu.Unlock()
+func (dm *DownloadManager) getDownloadById(id string) *Download {
+	return dm.downloads[id]
+}
+
+func (dm *DownloadManager) getActiveOwnerDownloads(owner_id string) map[string]*Download {
+	filtered := make(map[string]*Download)
+
+	log.Printf("Geting active downloads for: %s", owner_id)
+	for k, download := range dm.downloads {
+
+		if download.Owner == owner_id && download.State != 2 {
+			filtered[k] = download
+		}
+	}
+
+	return filtered
+}
+
+func (dm *DownloadManager) removeDownloadFromQueue(key string) {
+	dm.mu.Lock()
+	delete(dm.downloads, key)
+	defer dm.mu.Unlock()
+}
+
+func (dm *DownloadManager) downloadFile(id string) {
+	log.Print("downloading....", id)
 
 	ytdlp.MustInstall(context.TODO(), nil)
 
@@ -57,41 +83,75 @@ func (dm *DownloadManager) downloadFile(id string) {
 		PrintJSON().
 		NoPlaylist().
 		Progress().
-		Paths(fmt.Sprintf("downloads/%s", id)).
+		Paths("downloads/").
+		Verbose().
 		// FormatSort("res,ext:mp4:m4a").
 		// RecodeVideo("mp4").
-		Output("%(extractor)s - %(title)s.%(ext)s")
+		Output(id)
 
-	// response, err := dl.Run(context.TODO(), downloadR.Url)
-	_, err := dl.Run(context.TODO(), downloadR.Url)
+	response, err := dl.Run(context.TODO(), downloadR.Url)
+
 	if err != nil {
-
-		// log.Println("Error donwloading:", err)
-		downloadR.Channel <- Error
+		log.Print("Error downlaoding1", err)
+		// downloadR.Channel <- Error
 		// panic(err)
 	} else {
 
-		// log.Println("---> Downloading DONE!", response.Stdout)
-
-		// outputFilePath := "output.log"
-		// err = ioutil.WriteFile(outputFilePath, []byte(download.Stdout), 0644)
-		// if err != nil {
-		// fmt.Fprintf(os.Stderr, "Error writing to file: %v\n", err)
-		// return
-		// }
-		log.Println("---> Done. Filepath:", downloadR.FilePath)
-		downloadR.FilePath = "meow"
-		downloadR.Channel <- Done
-		log.Println("---> Done after. Filepath:", downloadR.FilePath)
+		title, _ := extractTitle(response.Stdout)
+		downloadR.Title = title
+		downloadR.State = Done
+		downloadR.FilePath = downloadR.buildPathToFile()
+		dm.mu.Lock()
+		if ch, exists := dm.completed[downloadR.Owner]; exists {
+			select {
+			case ch <- id:
+			default:
+			}
+		}
+		dm.mu.Unlock()
 	}
-	close(downloadR.Channel)
 }
 
 func (dm *DownloadManager) logDownloads() {
+	dm.mu.Lock()
 	log.Print("Current Downloads")
 	for key := range dm.downloads {
 		log.Printf("Current Downloads %s", key)
 		// fmt.Printf("download key: %d\n", key)
 	}
 
+	dm.mu.Unlock()
 }
+
+func extractTitle(stdout string) (string, error) {
+	var result map[string]interface{}
+	err := json.Unmarshal([]byte(stdout), &result)
+	if err != nil {
+		jsonStart := strings.Index(stdout, "{")
+		jsonEnd := strings.LastIndex(stdout, "}")
+		if jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart {
+			jsonPart := stdout[jsonStart : jsonEnd+1]
+			err = json.Unmarshal([]byte(jsonPart), &result)
+			if err != nil {
+				return "", fmt.Errorf("error unmarshaling JSON part: %v", err)
+			}
+		} else {
+			return "", fmt.Errorf("error unmarshaling JSON and couldn't find valid JSON part: %v", err)
+		}
+	}
+
+	title, ok := result["title"].(string)
+	if !ok {
+		return "", fmt.Errorf("title not found or not a string")
+	}
+
+	return title, nil
+}
+
+func (download *Download) buildPathToFile() string {
+	return "downloads/" + "/" + download.Id + ".mp3"
+
+
+
+}
+
