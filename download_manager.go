@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"github.com/google/uuid"
 	"github.com/lrstanley/go-ytdlp"
@@ -150,6 +153,7 @@ func extractTitle(stdout string) (string, error) {
 
 func (download *Download) buildPathToFile() string {
 	return "downloads/" + "/" + download.Id + ".mp3"
+}
 
 
 
