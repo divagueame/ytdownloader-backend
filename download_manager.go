@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"github.com/lrstanley/go-ytdlp"
 	"log"
 	"strings"
 	"sync"
-	"github.com/google/uuid"
-	"github.com/lrstanley/go-ytdlp"
 )
 
 type Download struct {
@@ -154,8 +154,3 @@ func extractTitle(stdout string) (string, error) {
 func (download *Download) buildPathToFile() string {
 	return "downloads/" + "/" + download.Id + ".mp3"
 }
-
-
-
-}
-
